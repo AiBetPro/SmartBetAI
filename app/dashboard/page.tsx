@@ -1,185 +1,426 @@
 'use client';
 
-import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 
-type Selection = {
+type Match = {
   id: string;
-  match: string;
   league: string;
-  market: string;
-  choice: string;
-  odds: number;
-  matchId?: string;
+  time: string;
+  home: string;
+  away: string;
+  homeOdd: string;
+  drawOdd: string;
+  awayOdd: string;
+  live?: boolean;
 };
 
-function generateCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let result = 'GX-';
-  for (let i = 0; i < 6; i++) result += chars[Math.floor(Math.random() * chars.length)];
-  return result;
-}
+const matches: Match[] = [
+  {
+    id: 'arsenal-chelsea',
+    league: 'Premier League',
+    time: '18:00',
+    home: 'Arsenal',
+    away: 'Chelsea',
+    homeOdd: '1.65',
+    drawOdd: '3.70',
+    awayOdd: '4.90',
+  },
+  {
+    id: 'barcelona-sevilla',
+    league: 'La Liga',
+    time: '20:30',
+    home: 'Barcelona',
+    away: 'Sevilla',
+    homeOdd: '1.42',
+    drawOdd: '4.40',
+    awayOdd: '6.80',
+  },
+  {
+    id: 'inter-milan',
+    league: 'Serie A',
+    time: '21:00',
+    home: 'Inter',
+    away: 'Milan',
+    homeOdd: '1.75',
+    drawOdd: '3.50',
+    awayOdd: '4.30',
+  },
+  {
+    id: 'psg-lyon',
+    league: 'Ligue 1',
+    time: '21:00',
+    home: 'PSG',
+    away: 'Lyon',
+    homeOdd: '1.48',
+    drawOdd: '4.20',
+    awayOdd: '5.90',
+  },
+  {
+    id: 'real-atletico',
+    league: 'La Liga',
+    time: '22:00',
+    home: 'Real Madrid',
+    away: 'Atlético Madrid',
+    homeOdd: '1.72',
+    drawOdd: '3.60',
+    awayOdd: '4.60',
+  },
+];
 
-const matchRoutes: Record<string, string> = {
-  'PSG vs Lyon': 'psg-lyon',
-  'Arsenal vs Chelsea': 'arsenal-chelsea',
-  'Barcelona vs Sevilla': 'barcelona-sevilla',
-  'Inter vs Milan': 'inter-milan',
-  'Real Madrid vs Atlético Madrid': 'real-atletico',
-};
+const sports = [
+  { icon: '⚽', name: 'Football', count: '245' },
+  { icon: '🏀', name: 'Basketball', count: '38' },
+  { icon: '🎾', name: 'Tennis', count: '64' },
+  { icon: '🏎️', name: 'F1', count: '12' },
+];
 
-export default function BetsPage() {
-  const [selections, setSelections] = useState<Selection[]>([]);
-  const [stake, setStake] = useState('');
-  const [couponCode, setCouponCode] = useState('');
-  const [copied, setCopied] = useState(false);
-  const [message, setMessage] = useState('');
+export default function DashboardPage() {
+  const [search, setSearch] = useState('');
+  const [selectedSport, setSelectedSport] =
+    useState('Football');
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('goalix_selections');
-      const savedStake = localStorage.getItem('goalix_stake');
-      const savedCode = localStorage.getItem('goalix_coupon_code');
-      const parsed: Selection[] = saved ? JSON.parse(saved) : [];
-      setSelections(Array.isArray(parsed) ? parsed : []);
-      if (savedStake) setStake(savedStake);
-      if (savedCode) setCouponCode(savedCode);
-      if (!savedCode && parsed.length > 0) {
-        const code = generateCode();
-        setCouponCode(code);
-        localStorage.setItem('goalix_coupon_code', code);
-      }
-    } catch (error) { console.error(error); }
-  }, []);
+  const filteredMatches = matches.filter((match) => {
+    const text = `${match.home} ${match.away} ${match.league}`
+      .toLowerCase();
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('goalix_selections', JSON.stringify(selections));
-      localStorage.setItem('goalix_stake', stake);
-      if (couponCode) localStorage.setItem('goalix_coupon_code', couponCode);
-    } catch (error) { console.error(error); }
-  }, [selections, stake, couponCode]);
-
-  const totalOdds = useMemo(() => selections.reduce((total, item) => total * item.odds, 1), [selections]);
-  const potentialWin = useMemo(() => {
-    const value = Number(stake);
-    return value > 0 && selections.length > 0 ? value * totalOdds : 0;
-  }, [stake, selections.length, totalOdds]);
-
-  function removeSelection(id: string) {
-    setSelections((current) => current.filter((item) => item.id !== id));
-    setMessage('Sélection retirée du coupon.');
-  }
-
-  function clearCoupon() {
-    setSelections([]); setStake(''); setCouponCode(''); setCopied(false);
-    localStorage.removeItem('goalix_selections');
-    localStorage.removeItem('goalix_stake');
-    localStorage.removeItem('goalix_coupon_code');
-    setMessage('Votre coupon a été réinitialisé.');
-  }
-
-  async function copyCode() {
-    if (!couponCode) return;
-    try {
-      await navigator.clipboard.writeText(couponCode);
-      setCopied(true); setMessage('Code de réservation copié.');
-      setTimeout(() => setCopied(false), 2000);
-    } catch { setMessage('Copie indisponible sur cet appareil.'); }
-  }
-
-  async function shareCoupon() {
-    if (!couponCode) return;
-    const text = `🎟️ Coupon GOALIX\n\nCode de réservation : ${couponCode}\n${selections.length} sélection(s)\nCote totale : ${totalOdds.toFixed(2)}\n\nOuvrez GOALIX pour charger ce coupon.`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: 'Coupon GOALIX', text });
-      } else {
-        await navigator.clipboard.writeText(text);
-        setMessage('Message du coupon copié pour être partagé.');
-      }
-    } catch (error) {
-      if ((error as Error).name !== 'AbortError') console.error(error);
-    }
-  }
-
-  function routeFor(item: Selection) {
-    if (item.matchId) return item.matchId;
-    return matchRoutes[item.match] || 'arsenal-chelsea';
-  }
+    return text.includes(search.toLowerCase());
+  });
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white pb-28">
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/95 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
-          <Link href="/" className="flex items-center gap-3"><span className="text-xl">←</span><span className="text-xl font-black tracking-widest">GOA<span className="text-emerald-400">LIX</span></span></Link>
-          <Link href="/dashboard" className="rounded-xl bg-white/10 px-4 py-2 text-xs font-black">⚽ Sports</Link>
+    <main className="dashboard-page">
+
+      {/* HEADER */}
+      <header className="dashboard-header">
+
+        <div className="dashboard-logo">
+          GOA<span>LIX</span>
         </div>
+
+        <button
+          className="dashboard-account"
+          aria-label="Compte"
+        >
+          👤
+        </button>
+
       </header>
 
-      <div className="mx-auto max-w-3xl px-4 py-6">
-        <div className="mb-6">
-          <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-400">GOALIX BET SLIP</p>
-          <h1 className="mt-2 text-4xl font-black tracking-tight">Mon coupon</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-400">Retrouvez vos sélections, partagez votre code et modifiez votre coupon à tout moment.</p>
+      {/* BALANCE */}
+      <section className="balance-card">
+
+        <div className="balance-top">
+          <div>
+            <span>MON SOLDE</span>
+
+            <strong>
+              0 FCFA
+            </strong>
+          </div>
+
+          <div className="balance-icon">
+            💳
+          </div>
         </div>
 
-        {message && <div className="mb-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm font-bold text-emerald-300">✓ {message}</div>}
+        <div className="balance-actions">
 
-        {selections.length === 0 ? (
-          <section className="overflow-hidden rounded-[28px] border border-white/10 bg-slate-900 shadow-2xl">
-            <div className="border-b border-white/10 px-5 py-5">
-              <div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-widest text-slate-500">COUPON DE PARI</p><h2 className="mt-1 text-2xl font-black">Votre coupon est vide</h2></div><span className="rounded-xl bg-white/5 px-3 py-2 text-xl">🎟️</span></div>
-            </div>
-            <div className="px-6 py-14 text-center">
-              <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-white/5 text-5xl">🎟️</div>
-              <h3 className="mt-6 text-2xl font-black">Aucune sélection</h3>
-              <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-400">Ouvrez un match depuis Sports, Live ou IA Prono puis choisissez vos marchés. Vos choix apparaîtront automatiquement ici.</p>
-              <Link href="/dashboard" className="mt-7 inline-flex rounded-2xl bg-emerald-500 px-7 py-4 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20">⚽ Découvrir les matchs</Link>
-            </div>
-          </section>
-        ) : (
-          <section className="overflow-hidden rounded-[28px] border border-white/10 bg-slate-900 shadow-2xl">
-            <div className="border-b border-white/10 bg-gradient-to-r from-slate-900 to-slate-800 px-5 py-5">
-              <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-400">COUPON DE PARI</p><h2 className="mt-1 text-2xl font-black">Vos sélections <span className="ml-1 rounded-full bg-white/10 px-2 py-1 text-sm">{selections.length}</span></h2></div><button onClick={clearCoupon} className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-black text-red-300">Réinitialiser</button></div>
-            </div>
+          <button>
+            + Dépôt
+          </button>
 
-            <div className="p-4 sm:p-5">
-              <div className="mb-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4">
-                <p className="text-sm leading-6 text-cyan-100"><span className="font-black">🎉 Partagez votre coupon.</span> Utilisez le code ci-dessous pour communiquer votre coupon à un autre utilisateur.</p>
-              </div>
+          <button>
+            Retrait
+          </button>
 
-              <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div><p className="text-[11px] font-black uppercase tracking-widest text-slate-400">CODE DE RÉSERVATION</p><p className="mt-1 text-2xl font-black tracking-[0.2em] text-emerald-300">{couponCode}</p></div>
-                  <div className="grid grid-cols-2 gap-2"><button onClick={copyCode} className="rounded-xl bg-white/10 px-4 py-3 text-xs font-black">{copied ? '✓ Copié' : '📋 Copier'}</button><button onClick={shareCoupon} className="rounded-xl bg-emerald-500 px-4 py-3 text-xs font-black text-slate-950">📤 Partager</button></div>
-                </div>
-              </div>
+        </div>
 
-              <div className="mt-5 space-y-3">
-                {selections.map((item) => (
-                  <div key={item.id} className="flex items-stretch overflow-hidden rounded-2xl border border-white/10 bg-slate-800/80 transition hover:border-emerald-400/40">
-                    <Link href={`/match/${routeFor(item)}`} className="min-w-0 flex-1 p-4 hover:bg-white/[0.03]">
-                      <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">{item.market}</p><p className="mt-1 truncate text-sm font-black text-white">⚽ {item.match}</p><p className="mt-1 text-sm font-bold text-slate-300">{item.choice}</p><p className="mt-1 text-[11px] text-slate-500">{item.league}</p></div><div className="flex shrink-0 flex-col items-end"><span className="text-xl font-black text-emerald-300">{item.odds.toFixed(2)}</span><span className="mt-1 text-[10px] font-bold text-slate-500">Modifier →</span></div></div>
-                    </Link>
-                    <button onClick={() => removeSelection(item.id)} className="w-12 shrink-0 border-l border-white/10 bg-red-500/5 text-xl font-black text-red-300 hover:bg-red-500/10" aria-label="Supprimer">×</button>
-                  </div>
-                ))}
-              </div>
+        <p>
+          Mode démonstration — aucun argent réel.
+        </p>
 
-              <div className="mt-5 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl bg-white/5 p-4"><p className="text-xs font-bold text-slate-500">COTE TOTALE</p><p className="mt-1 text-2xl font-black text-emerald-300">{totalOdds.toFixed(2)}</p></div>
-                <div className="rounded-2xl bg-white/5 p-4"><p className="text-xs font-bold text-slate-500">SÉLECTIONS</p><p className="mt-1 text-2xl font-black">{selections.length}</p></div>
-              </div>
+      </section>
 
-              <div className="mt-3 rounded-2xl bg-white/5 p-4"><label htmlFor="stake" className="text-xs font-black uppercase tracking-widest text-slate-500">MISE</label><div className="mt-2 flex items-center gap-3"><input id="stake" type="number" min="0" inputMode="decimal" value={stake} onChange={(e) => setStake(e.target.value)} placeholder="500" className="w-full bg-transparent text-3xl font-black text-white outline-none placeholder:text-slate-700"/><span className="font-black text-emerald-400">FCFA</span></div></div>
-              <div className="mt-3 flex items-center justify-between rounded-2xl bg-emerald-500 p-5 text-slate-950"><div><p className="text-xs font-black uppercase tracking-widest">GAIN POTENTIEL</p><p className="mt-1 text-3xl font-black">{potentialWin.toLocaleString('fr-FR',{maximumFractionDigits:0})} FCFA</p></div><span className="text-3xl">💰</span></div>
-            </div>
-          </section>
-        )}
+      {/* SEARCH */}
+      <div className="dashboard-search">
 
-        <div className="mt-5 rounded-2xl border border-amber-400/10 bg-amber-400/5 p-4 text-xs leading-5 text-amber-200/80">⚠️ Les cotes affichées actuellement sont des données de démonstration. Les vraies cotes Sportmonks et le stockage serveur du code de réservation seront intégrés avant la mise en production.</div>
+        <span>⌕</span>
+
+        <input
+          type="text"
+          placeholder="Rechercher une équipe ou un match..."
+          value={search}
+          onChange={(event) =>
+            setSearch(event.target.value)
+          }
+        />
+
       </div>
+
+      {/* SPORTS */}
+      <section className="dashboard-section">
+
+        <div className="dashboard-title">
+          <div>
+            <span>EXPLORER</span>
+            <h2>Sports</h2>
+          </div>
+
+          <span className="dashboard-count">
+            {sports.length}
+          </span>
+        </div>
+
+        <div className="sports-scroll">
+
+          {sports.map((sport) => (
+
+            <button
+              key={sport.name}
+              onClick={() =>
+                setSelectedSport(sport.name)
+              }
+              className={`dashboard-sport ${
+                selectedSport === sport.name
+                  ? 'active'
+                  : ''
+              }`}
+            >
+
+              <span className="sport-icon">
+                {sport.icon}
+              </span>
+
+              <strong>
+                {sport.name}
+              </strong>
+
+              <small>
+                {sport.count} matchs
+              </small>
+
+            </button>
+
+          ))}
+
+        </div>
+
+      </section>
+
+      {/* QUICK ACTIONS */}
+      <section className="quick-actions">
+
+        <a href="/live" className="quick-card live-card">
+
+          <div>
+            <span className="quick-icon">🔴</span>
+
+            <strong>
+              Matchs Live
+            </strong>
+
+            <small>
+              Voir les matchs en direct
+            </small>
+          </div>
+
+          <span className="quick-arrow">
+            →
+          </span>
+
+        </a>
+
+        <a href="/ai-prono" className="quick-card ai-card">
+
+          <div>
+            <span className="quick-icon">🤖</span>
+
+            <strong>
+              IA Prono
+            </strong>
+
+            <small>
+              Générer un coupon intelligent
+            </small>
+          </div>
+
+          <span className="quick-arrow">
+            →
+          </span>
+
+        </a>
+
+      </section>
+
+      {/* MATCHS */}
+      <section className="dashboard-section matches-dashboard">
+
+        <div className="dashboard-title">
+
+          <div>
+            <span>AUJOURD&apos;HUI</span>
+            <h2>
+              Matchs populaires
+            </h2>
+          </div>
+
+          <a href="/live">
+            Tout voir →
+          </a>
+
+        </div>
+
+        <div className="dashboard-matches">
+
+          {filteredMatches.length === 0 ? (
+
+            <div className="no-results">
+              <span>🔎</span>
+
+              <strong>
+                Aucun match trouvé
+              </strong>
+
+              <p>
+                Essayez une autre recherche.
+              </p>
+            </div>
+
+          ) : (
+
+            filteredMatches.map((match) => (
+
+              <a
+  key={match.id}
+  href={`/match/${match.id}`}
+  className="dashboard-match"
+>
+
+                <div className="match-header">
+
+                  <span>
+                    {match.league}
+                  </span>
+
+                  <time>
+                    {match.time}
+                  </time>
+
+                </div>
+
+                <div className="match-body">
+
+                  <div className="dashboard-team">
+
+                    <div className="team-logo">
+                      {match.home.charAt(0)}
+                    </div>
+
+                    <strong>
+                      {match.home}
+                    </strong>
+
+                  </div>
+
+                  <div className="dashboard-vs">
+                    VS
+                  </div>
+
+                  <div className="dashboard-team">
+
+                    <div className="team-logo">
+                      {match.away.charAt(0)}
+                    </div>
+
+                    <strong>
+                      {match.away}
+                    </strong>
+
+                  </div>
+
+                </div>
+
+                <div className="odds-title">
+                  RÉSULTAT DU MATCH
+                </div>
+
+                <div className="odds-grid">
+
+                  <button>
+                    <small>1</small>
+                    <strong>
+                      {match.homeOdd}
+                    </strong>
+                  </button>
+
+                  <button>
+                    <small>X</small>
+                    <strong>
+                      {match.drawOdd}
+                    </strong>
+                  </button>
+
+                  <button>
+                    <small>2</small>
+                    <strong>
+                      {match.awayOdd}
+                    </strong>
+                  </button>
+
+                </div>
+
+              </a>
+
+            ))
+
+          )}
+
+        </div>
+
+      </section>
+
+      {/* AI BANNER */}
+      <section className="dashboard-ai-banner">
+
+        <div>
+
+          <span>
+            🤖 GOALIX AI
+          </span>
+
+          <h2>
+            Besoin d&apos;une analyse ?
+          </h2>
+
+          <p>
+            Laissez notre système analyser les
+            opportunités disponibles.
+          </p>
+
+          <a href="/ai-prono">
+            Découvrir IA Prono →
+          </a>
+
+        </div>
+
+        <div className="dashboard-ai-orb">
+          AI
+        </div>
+
+      </section>
+
+      {/* FOOTER */}
+      <footer className="dashboard-footer">
+
+        <strong>
+          GOA<span>LIX</span>
+        </strong>
+
+        <p>
+          Sports Betting & AI Predictions
+        </p>
+
+      </footer>
+
     </main>
   );
-}
+    }
