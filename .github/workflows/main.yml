@@ -28,4 +28,4 @@ jobs:
         run: npx prisma generate
 
       - name: Construire GOALIX
-        run: npm run
+        run: npm run build 
